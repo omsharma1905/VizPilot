@@ -1,6 +1,7 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/src/lib/auth/session';
 import { getUsersCollection } from '@/src/lib/db/collections';
+import { assertCsrfSafe } from '@/src/lib/security/csrf';
 import type { SafeUser } from '@/src/types/auth';
 
 export const runtime = 'nodejs';
@@ -41,6 +42,9 @@ export async function GET(request: NextRequest) {
 
 export async function PATCH(request: NextRequest) {
   try {
+    const csrfError = assertCsrfSafe(request);
+    if (csrfError) return csrfError;
+
     const auth = await getAuthenticatedUser(request);
     if (!auth) {
       return NextResponse.json(

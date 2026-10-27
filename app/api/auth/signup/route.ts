@@ -4,6 +4,8 @@ import { getUsersCollection, getWorkspacesCollection } from '@/src/lib/db/collec
 import { initializeDatabaseIndexes } from '@/src/lib/db/init';
 import { hashPassword } from '@/src/lib/auth/password';
 import { createSession, setSessionCookie } from '@/src/lib/auth/session';
+import { assertCsrfSafe } from '@/src/lib/security/csrf';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/src/lib/security/rate-limit';
 import type { UserDocument, WorkspaceDocument, SafeUser, SafeWorkspace } from '@/src/types/auth';
 
 export const runtime = 'nodejs';
@@ -19,6 +21,15 @@ const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = assertCsrfSafe(request);
+    if (csrfError) return csrfError;
+
+    const ip = getClientIp(request);
+    const rateLimit = checkRateLimit('signup', ip);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit);
+    }
+
     const contentType = request.headers.get('content-type') || '';
     if (!contentType.includes('application/json')) {
       return NextResponse.json(
@@ -116,7 +127,6 @@ export async function POST(request: NextRequest) {
     }
 
     const userAgent = request.headers.get('user-agent') || undefined;
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() || undefined;
     const sessionToken = await createSession(userId, { userAgent, ip });
 
     const safeUser: SafeUser = {

@@ -1,7 +1,9 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser, SESSION_COOKIE_NAME } from '@/src/lib/auth/session';
 import { getUsersCollection, getSessionsCollection } from '@/src/lib/db/collections';
 import { verifyPassword, hashPassword } from '@/src/lib/auth/password';
+import { assertCsrfSafe } from '@/src/lib/security/csrf';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/src/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,12 +16,21 @@ const NO_STORE_HEADERS = {
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = assertCsrfSafe(request);
+    if (csrfError) return csrfError;
+
     const auth = await getAuthenticatedUser(request);
     if (!auth) {
       return NextResponse.json(
         { success: false, error: { code: 'UNAUTHORIZED', message: 'You must be signed in to change your password.' } },
         { status: 401, headers: NO_STORE_HEADERS }
       );
+    }
+
+    const ip = getClientIp(request);
+    const rateLimit = checkRateLimit('password', `${auth.user.id}:${ip}`);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit);
     }
 
     const contentType = request.headers.get('content-type') || '';

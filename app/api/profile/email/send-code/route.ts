@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/src/lib/auth/session';
 import { issueVerificationCode, VERIFICATION_EXPIRATION_MINUTES } from '@/src/lib/email/verification';
 import { getEmailProvider } from '@/src/lib/email/provider';
+import { assertCsrfSafe } from '@/src/lib/security/csrf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,6 +15,9 @@ const NO_STORE_HEADERS = {
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = assertCsrfSafe(request);
+    if (csrfError) return csrfError;
+
     const auth = await getAuthenticatedUser(request);
     if (!auth) {
       return NextResponse.json(

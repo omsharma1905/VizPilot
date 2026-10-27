@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/src/lib/auth/session';
 import { getUsersCollection } from '@/src/lib/db/collections';
 import { verifyCode } from '@/src/lib/email/verification';
+import { assertCsrfSafe } from '@/src/lib/security/csrf';
 import type { SafeUser } from '@/src/types/auth';
 
 export const runtime = 'nodejs';
@@ -15,6 +16,9 @@ const NO_STORE_HEADERS = {
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = assertCsrfSafe(request);
+    if (csrfError) return csrfError;
+
     const auth = await getAuthenticatedUser(request);
     if (!auth) {
       return NextResponse.json(

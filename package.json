@@ -13,6 +13,7 @@
     "test:visualization": "tsx scripts/test-visualization.ts",
     "test:correction": "tsx scripts/test-intelligence-correction.ts",
     "test:security": "tsx scripts/test-security.ts",
+    "test:comprehensive-security": "tsx scripts/test-comprehensive-security.ts",
     "test:e2e": "tsx scripts/test-e2e-integration.ts",
     "test:bugfix": "tsx scripts/test-bugfix-qa.ts",
     "test:auth": "tsx scripts/test-auth-db.ts",

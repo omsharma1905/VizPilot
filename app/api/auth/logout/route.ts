@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { clearSessionCookie, destroySession, SESSION_COOKIE_NAME } from '@/src/lib/auth/session';
+import { assertCsrfSafe } from '@/src/lib/security/csrf';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -12,6 +13,9 @@ const NO_STORE_HEADERS = {
 
 export async function POST(request: NextRequest) {
   try {
+    const csrfError = assertCsrfSafe(request);
+    if (csrfError) return csrfError;
+
     const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
     if (token) {
       await destroySession(token);

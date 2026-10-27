@@ -3,6 +3,8 @@ import { ingestFile, IngestionError } from '@/src/lib/ingestion';
 import { createProcessingContext, getElapsedMs } from '@/src/lib/security/context';
 import { safeTelemetryLogger } from '@/src/lib/security/telemetry';
 import { getAuthenticatedUser } from '@/src/lib/auth/session';
+import { assertCsrfSafe } from '@/src/lib/security/csrf';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/src/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -14,6 +16,15 @@ const NO_STORE_HEADERS = {
 };
 
 export async function POST(request: NextRequest) {
+  const csrfError = assertCsrfSafe(request);
+  if (csrfError) return csrfError;
+
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit('ingest', ip);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit);
+  }
+
   const rawModeHeader = request.headers.get('x-vizpilot-mode');
   let ctx = createProcessingContext(request, rawModeHeader);
 

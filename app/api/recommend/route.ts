@@ -18,6 +18,8 @@ import { getVisualizationRecommendation } from '@/src/lib/ai/recommendation';
 import { createProcessingContext, getElapsedMs } from '@/src/lib/security/context';
 import { safeTelemetryLogger } from '@/src/lib/security/telemetry';
 import { getAuthenticatedUser } from '@/src/lib/auth/session';
+import { assertCsrfSafe } from '@/src/lib/security/csrf';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/src/lib/security/rate-limit';
 
 export const dynamic = 'force-dynamic';
 export const runtime = 'nodejs';
@@ -29,6 +31,15 @@ const NO_STORE_HEADERS = {
 };
 
 export async function POST(request: NextRequest) {
+  const csrfError = assertCsrfSafe(request);
+  if (csrfError) return csrfError;
+
+  const ip = getClientIp(request);
+  const rateLimit = checkRateLimit('recommend', ip);
+  if (!rateLimit.allowed) {
+    return rateLimitResponse(rateLimit);
+  }
+
   const rawModeHeader = request.headers.get('x-vizpilot-mode');
   let ctx = createProcessingContext(request, rawModeHeader);
 
