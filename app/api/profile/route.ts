@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/src/lib/auth/session';
 import { getUsersCollection } from '@/src/lib/db/collections';
 import { assertCsrfSafe } from '@/src/lib/security/csrf';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/src/lib/security/rate-limit';
 import type { SafeUser } from '@/src/types/auth';
 
 export const runtime = 'nodejs';
@@ -51,6 +52,12 @@ export async function PATCH(request: NextRequest) {
         { success: false, error: { code: 'UNAUTHORIZED', message: 'You must be signed in to update your profile.' } },
         { status: 401, headers: NO_STORE_HEADERS }
       );
+    }
+
+    const ip = getClientIp(request);
+    const rateLimit = checkRateLimit('general', `${auth.user.id}:${ip}`);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit);
     }
 
     const contentType = request.headers.get('content-type') || '';

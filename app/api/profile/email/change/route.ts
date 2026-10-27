@@ -5,6 +5,7 @@ import { verifyPassword } from '@/src/lib/auth/password';
 import { issueVerificationCode, VERIFICATION_EXPIRATION_MINUTES } from '@/src/lib/email/verification';
 import { getEmailProvider } from '@/src/lib/email/provider';
 import { assertCsrfSafe } from '@/src/lib/security/csrf';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/src/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -28,6 +29,12 @@ export async function POST(request: NextRequest) {
         { success: false, error: { code: 'UNAUTHORIZED', message: 'You must be signed in to request an email change.' } },
         { status: 401, headers: NO_STORE_HEADERS }
       );
+    }
+
+    const ip = getClientIp(request);
+    const rateLimit = checkRateLimit('email_verification', `${auth.user.id}:${ip}`);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit);
     }
 
     const contentType = request.headers.get('content-type') || '';

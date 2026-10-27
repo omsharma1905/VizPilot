@@ -3,6 +3,7 @@ import { getAuthenticatedUser } from '@/src/lib/auth/session';
 import { issueVerificationCode, VERIFICATION_EXPIRATION_MINUTES } from '@/src/lib/email/verification';
 import { getEmailProvider } from '@/src/lib/email/provider';
 import { assertCsrfSafe } from '@/src/lib/security/csrf';
+import { checkRateLimit, getClientIp, rateLimitResponse } from '@/src/lib/security/rate-limit';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -24,6 +25,12 @@ export async function POST(request: NextRequest) {
         { success: false, error: { code: 'UNAUTHORIZED', message: 'You must be signed in to request a verification code.' } },
         { status: 401, headers: NO_STORE_HEADERS }
       );
+    }
+
+    const ip = getClientIp(request);
+    const rateLimit = checkRateLimit('email_verification', `${auth.user.id}:${ip}`);
+    if (!rateLimit.allowed) {
+      return rateLimitResponse(rateLimit);
     }
 
     if (auth.user.emailVerifiedAt) {
